@@ -2,11 +2,13 @@
 // Please, do not modify it manually
 
 pub use super::test_markdown_html;
+pub use super::test_markdown_html_smart;
 
-mod footnotes;
-mod gfm_strikethrough;
-mod gfm_table;
-mod gfm_tasklist;
+mod smart_punctuation;
 mod regression;
-mod spec;
+mod footnotes;
 mod table;
+mod spec;
+mod gfm_table;
+mod gfm_strikethrough;
+mod gfm_tasklist;

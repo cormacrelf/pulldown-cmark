@@ -69,8 +69,15 @@ fn generate_tests_from_spec() {
         spec_rs
             .write(b"// Please, do not modify it manually\n")
             .unwrap();
+
         spec_rs
-            .write(b"\nuse super::test_markdown_html;\n")
+            .write(b"\n#[allow(unused_imports)]\n")
+            .unwrap();
+        spec_rs
+            .write(b"use super::test_markdown_html;\n")
+            .unwrap();
+        spec_rs
+            .write(b"use super::test_markdown_html_smart;\n")
             .unwrap();
 
         for (i, testcase) in spec.enumerate() {
@@ -82,13 +89,14 @@ fn {}_test_{i}() {{
     let original = r##"{original}"##;
     let expected = r##"{expected}"##;
 
-    test_markdown_html(original, expected);
+    test_markdown_html{suffix}(original, expected);
 }}
 "###,
                     spec_name,
                     i = i + 1,
                     original = testcase.original,
-                    expected = testcase.expected
+                    expected = testcase.expected,
+                    suffix = testcase.suffix,
                 ))
                 .unwrap();
 
@@ -114,7 +122,10 @@ fn {}_test_{i}() {{
         .write(b"// Please, do not modify it manually\n")
         .unwrap();
     mod_rs
-        .write(b"\npub use super::test_markdown_html;\n\n")
+        .write(b"\npub use super::test_markdown_html;\n")
+        .unwrap();
+    mod_rs
+        .write(b"pub use super::test_markdown_html_smart;\n\n")
         .unwrap();
 
     for file_path in &spec_files {
@@ -141,6 +152,7 @@ impl<'a> Spec<'a> {
 pub struct TestCase {
     pub original: String,
     pub expected: String,
+    pub suffix: &'static str,
 }
 
 #[cfg(feature = "gen-tests")]
@@ -149,6 +161,7 @@ impl<'a> Iterator for Spec<'a> {
 
     fn next(&mut self) -> Option<TestCase> {
         let spec = self.spec;
+        let mut suffix = "";
 
         let i_start = match self
             .spec
@@ -156,7 +169,17 @@ impl<'a> Iterator for Spec<'a> {
             .map(|pos| pos + 41)
         {
             Some(pos) => pos,
-            None => return None,
+            None => match self
+                .spec
+                .find("```````````````````````````````` example_smart\n")
+                .map(|pos| pos + 47)
+            {
+                Some(pos) => {
+                    suffix = "_smart";
+                    pos
+                },
+                None => return None,
+            }
         };
 
         let i_end = match self.spec[i_start..]
@@ -180,6 +203,7 @@ impl<'a> Iterator for Spec<'a> {
         let test_case = TestCase {
             original: spec[i_start..i_end].to_string().replace("→", "\t"),
             expected: spec[i_end + 2..e_end].to_string().replace("→", "\t"),
+            suffix,
         };
 
         Some(test_case)

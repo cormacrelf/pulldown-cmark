@@ -32,6 +32,23 @@ pub fn test_markdown_html(input: &str, output: &str) {
     assert_eq!(normalize_html(output), normalize_html(&s));
 }
 
+#[inline(never)]
+pub fn test_markdown_html_smart(input: &str, output: &str) {
+    let mut s = String::new();
+
+    let mut opts = Options::empty();
+    opts.insert(Options::ENABLE_TABLES);
+    opts.insert(Options::ENABLE_FOOTNOTES);
+    opts.insert(Options::ENABLE_STRIKETHROUGH);
+    opts.insert(Options::ENABLE_TASKLISTS);
+    opts.insert(Options::ENABLE_SMART_PUNCTUATION);
+
+    let p = Parser::new_ext(input, opts);
+    pulldown_cmark::html::push_html(&mut s, p);
+
+    assert_eq!(normalize_html(output), normalize_html(&s));
+}
+
 lazy_static! {
     static ref WHITESPACE_RE: Regex = Regex::new(r"\s+").unwrap();
     static ref LEADING_WHITESPACE_RE: Regex = Regex::new(r"\A\s+").unwrap();

@@ -1,0 +1,19 @@
+Run this with `cargo run -- -T -F -s specs/smart_punctuation.txt`.
+
+```````````````````````````````` example_smart
+Manice's dog said, "Woof."
+.
+<p>Manice&#8217;s dog said, &#8220Woof.&#8221;</p>
+````````````````````````````````
+
+```````````````````````````````` example_smart
+'Manice's dog said, "Woof."'
+.
+<p>&#8216;Manice&#8217;s dog said, &#8220Woof.&#8221;&#8217;</p>
+````````````````````````````````
+
+```````````````````````````````` example_smart
+'*Italicised, quoted*'
+.
+<p>&#8216;<em>Italicised, quoted</em>&#8217;</p>
+````````````````````````````````
