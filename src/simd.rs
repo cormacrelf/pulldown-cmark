@@ -52,6 +52,8 @@ pub static SPECIALS_LUT_EXTENDED: [u8; 16] = {
     let mut lookup = base_lut();
     lookup[(b'|' & 0x0f) as usize] |= 1 << (b'|' >> 4);
     lookup[(b'~' & 0x0f) as usize] |= 1 << (b'~' >> 4);
+    lookup[(b'\'' & 0x0f) as usize] |= 1 << (b'\'' >> 4);
+    lookup[(b'"' & 0x0f) as usize] |= 1 << (b'"' >> 4);
     lookup
 };
 pub static MAYBE_SPECIALS_LUT_EXTENDED: MaybeSimdLut = (

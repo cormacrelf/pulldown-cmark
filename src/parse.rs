@@ -145,6 +145,11 @@ pub enum Event<'a> {
     Rule,
     /// A task list marker, rendered as a checkbox in HTML. Contains a true when it is checked.
     TaskListMarker(bool),
+
+    SmartQuoteSingleOpen,
+    SmartQuoteSingleClose,
+    SmartQuoteDoubleOpen,
+    SmartQuoteDoubleClose,
 }
 
 /// Table column text alignment.
@@ -165,6 +170,7 @@ bitflags! {
         const ENABLE_FOOTNOTES = 1 << 2;
         const ENABLE_STRIKETHROUGH = 1 << 3;
         const ENABLE_TASKLISTS = 1 << 4;
+        const ENABLE_SMART_PUNCTUATION = 1 << 5;
     }
 }
 
@@ -186,6 +192,7 @@ enum ItemBody {
 
     // repeats, can_open, can_close
     MaybeEmphasis(usize, bool, bool),
+    MaybeSmartQuote(usize, bool, bool),
     MaybeCode(usize, bool), // number of backticks, preceeded by backslash
     MaybeHtml,
     MaybeLinkOpen,
@@ -196,6 +203,10 @@ enum ItemBody {
     Emphasis,
     Strong,
     Strikethrough,
+    SmartQuoteSingleOpen,
+    SmartQuoteSingleClose,
+    SmartQuoteDoubleOpen,
+    SmartQuoteDoubleClose,
     Code(CowIndex),
     Link(LinkIndex),
     Image(LinkIndex),
@@ -227,6 +238,7 @@ impl<'a> ItemBody {
     fn is_inline(&self) -> bool {
         match *self {
             ItemBody::MaybeEmphasis(..)
+            | ItemBody::MaybeSmartQuote(..)
             | ItemBody::MaybeHtml
             | ItemBody::MaybeCode(..)
             | ItemBody::MaybeLinkOpen
@@ -760,6 +772,23 @@ impl<'a> FirstPass<'a> {
                     } else {
                         LoopInstruction::ContinueAndSkip(0)
                     }
+                }
+                c @ b'\'' | c @ b'"' => {
+                    let string_suffix = &self.text[ix..];
+                    let can_open = delim_run_can_open(&self.text, string_suffix, 1, ix);
+                    let can_close = delim_run_can_close(&self.text, string_suffix, 1, ix);
+                    let is_single = c == b'\'';
+
+                    if self.options.contains(Options::ENABLE_SMART_PUNCTUATION) {
+                        self.tree.append_text(begin_text, ix);
+                        self.tree.append(Item {
+                            start: ix,
+                            end: ix + 1,
+                            body: ItemBody::MaybeSmartQuote(1, can_open, can_close),
+                        });
+                        begin_text = ix + 1;
+                    }
+                    LoopInstruction::ContinueAndSkip(0)
                 }
                 c @ b'*' | c @ b'_' | c @ b'~' => {
                     let string_suffix = &self.text[ix..];
@@ -1964,6 +1993,7 @@ impl<'a> Parser<'a> {
     fn handle_inline(&mut self) {
         self.handle_inline_pass1();
         self.handle_emphasis();
+        self.handle_smart_quotes();
     }
 
     /// Handle inline HTML, code spans, and links.
@@ -2236,6 +2266,36 @@ impl<'a> Parser<'a> {
             cur = self.tree[cur_ix].next;
         }
         self.link_stack.clear();
+    }
+
+    fn handle_smart_quotes(&mut self) {
+        let mut code_delims = CodeDelims::new();
+        let mut cur = self.tree.cur();
+        let mut prev = TreePointer::Nil;
+
+        let block_end = self.tree[self.tree.peek_up().unwrap()].item.end;
+        let block_text = &self.text[..block_end];
+
+        while let TreePointer::Valid(mut cur_ix) = cur {
+            if let ItemBody::MaybeSmartQuote(count, can_open, can_close) = self.tree[cur_ix].item.body {
+                let c = self.text.as_bytes()[self.tree[cur_ix].item.start];
+                let ty = |open: bool| match (open, c) {
+                    (true, b'\'') => ItemBody::SmartQuoteSingleOpen,
+                    (true, b'"') => ItemBody::SmartQuoteDoubleOpen,
+                    (false, b'\'') => ItemBody::SmartQuoteSingleClose,
+                    (false, b'"') => ItemBody::SmartQuoteDoubleClose,
+                    _ => unreachable!("only single and double quotes should be in MaybeSmartQuote"),
+                };
+                // Neither == in the middle of a word (these have the same meaning as for emphasis)
+                if can_close || (!can_open && !can_close) {
+                    self.tree[cur_ix].item.body = ty(false);
+                } else {
+                    self.tree[cur_ix].item.body = ty(true);
+                }
+            }
+            prev = cur;
+            cur = self.tree[cur_ix].next;
+        }
     }
 
     fn handle_emphasis(&mut self) {
@@ -2622,6 +2682,8 @@ pub(crate) static SPECIAL_BYTES_LUT_EXTENDED: [bool; 256] = {
     let mut bytes = base_lut();
     bytes[b'~' as usize] = true;
     bytes[b'|' as usize] = true;
+    bytes[b'\'' as usize] = true;
+    bytes[b'"' as usize] = true;
     bytes
 };
 
@@ -2742,6 +2804,11 @@ fn item_to_event<'a>(item: Item, text: &'a str, allocs: &Allocations<'a>) -> Eve
         ItemBody::FootnoteReference(cow_ix) => {
             return Event::FootnoteReference(allocs[cow_ix].clone())
         }
+        ItemBody::SmartQuoteSingleOpen => return Event::SmartQuoteSingleOpen,
+        ItemBody::SmartQuoteSingleClose => return Event::SmartQuoteSingleClose,
+        ItemBody::SmartQuoteDoubleOpen => return Event::SmartQuoteDoubleOpen,
+        ItemBody::SmartQuoteDoubleClose => return Event::SmartQuoteDoubleClose,
+
         ItemBody::TaskListMarker(checked) => return Event::TaskListMarker(checked),
         ItemBody::Rule => return Event::Rule,
 
@@ -2867,6 +2934,7 @@ mod test {
         opts.insert(Options::ENABLE_FOOTNOTES);
         opts.insert(Options::ENABLE_STRIKETHROUGH);
         opts.insert(Options::ENABLE_TASKLISTS);
+        opts.insert(Options::ENABLE_SMART_PUNCTUATION);
 
         Parser::new_ext(text, opts)
     }

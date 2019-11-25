@@ -176,6 +176,18 @@ where
                         self.write("\n<hr />\n")?;
                     }
                 }
+                SmartQuoteSingleOpen => {
+                    self.write("&#8216;")?;
+                },
+                SmartQuoteSingleClose => {
+                    self.write("&#8217;")?;
+                }
+                SmartQuoteDoubleOpen => {
+                    self.write("&#8220;")?;
+                }
+                SmartQuoteDoubleClose => {
+                    self.write("&#8221;")?;
+                }
                 FootnoteReference(name) => {
                     let len = self.numbers.len() + 1;
                     self.write("<sup class=\"footnote-reference\"><a href=\"#")?;
@@ -433,6 +445,8 @@ where
                 }
                 TaskListMarker(true) => self.write("[x]")?,
                 TaskListMarker(false) => self.write("[ ]")?,
+                SmartQuoteSingleOpen | SmartQuoteSingleClose => self.write("'")?,
+                SmartQuoteDoubleOpen | SmartQuoteDoubleClose => self.write("\"")?,
             }
         }
         Ok(())
