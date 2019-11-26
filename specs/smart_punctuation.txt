@@ -17,3 +17,10 @@ Manice's dog said, "Woof."
 .
 <p>&#8216;<em>Italicised, quoted</em>&#8217;</p>
 ````````````````````````````````
+
+```````````````````````````````` example_smart
+'Nobody Knows You're a Dog': As iconic Internet cartoon turns 20...
+.
+<p>&#8216;Nobody Knows You&#8217;re a Dog&#8217;: As iconic Internet cartoon turns 20...</p>
+````````````````````````````````
+

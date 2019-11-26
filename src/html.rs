@@ -179,7 +179,7 @@ where
                 SmartQuoteSingleOpen => {
                     self.write("&#8216;")?;
                 },
-                SmartQuoteSingleClose => {
+                SmartQuoteSingleClose | SmartMidwordInvertedComma => {
                     self.write("&#8217;")?;
                 }
                 SmartQuoteDoubleOpen => {
@@ -445,7 +445,7 @@ where
                 }
                 TaskListMarker(true) => self.write("[x]")?,
                 TaskListMarker(false) => self.write("[ ]")?,
-                SmartQuoteSingleOpen | SmartQuoteSingleClose => self.write("'")?,
+                SmartQuoteSingleOpen | SmartQuoteSingleClose | SmartMidwordInvertedComma => self.write("'")?,
                 SmartQuoteDoubleOpen | SmartQuoteDoubleClose => self.write("\"")?,
             }
         }

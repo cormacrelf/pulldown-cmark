@@ -150,6 +150,7 @@ pub enum Event<'a> {
     SmartQuoteSingleClose,
     SmartQuoteDoubleOpen,
     SmartQuoteDoubleClose,
+    SmartMidwordInvertedComma,
 }
 
 /// Table column text alignment.
@@ -207,6 +208,9 @@ enum ItemBody {
     SmartQuoteSingleClose,
     SmartQuoteDoubleOpen,
     SmartQuoteDoubleClose,
+    // Special case of SingleClose in the middle of a word, so that later processing can attempt to
+    // treat quotations as tags and preserve the markdown parser's knowledge of word boundaries
+    SmartMidwordInvertedComma,
     Code(CowIndex),
     Link(LinkIndex),
     Image(LinkIndex),
@@ -2286,8 +2290,10 @@ impl<'a> Parser<'a> {
                     (false, b'"') => ItemBody::SmartQuoteDoubleClose,
                     _ => unreachable!("only single and double quotes should be in MaybeSmartQuote"),
                 };
-                // Neither == in the middle of a word (these have the same meaning as for emphasis)
-                if can_close || (!can_open && !can_close) {
+                // Neither == in the middle of a word (can_* have the same meaning as for emphasis)
+                if !can_open && !can_close && c == b'\'' {
+                    self.tree[cur_ix].item.body = ItemBody::SmartMidwordInvertedComma;
+                } else if can_close {
                     self.tree[cur_ix].item.body = ty(false);
                 } else {
                     self.tree[cur_ix].item.body = ty(true);
@@ -2808,6 +2814,7 @@ fn item_to_event<'a>(item: Item, text: &'a str, allocs: &Allocations<'a>) -> Eve
         ItemBody::SmartQuoteSingleClose => return Event::SmartQuoteSingleClose,
         ItemBody::SmartQuoteDoubleOpen => return Event::SmartQuoteDoubleOpen,
         ItemBody::SmartQuoteDoubleClose => return Event::SmartQuoteDoubleClose,
+        ItemBody::SmartMidwordInvertedComma => return Event::SmartMidwordInvertedComma,
 
         ItemBody::TaskListMarker(checked) => return Event::TaskListMarker(checked),
         ItemBody::Rule => return Event::Rule,

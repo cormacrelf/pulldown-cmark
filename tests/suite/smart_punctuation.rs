@@ -34,3 +34,13 @@ fn smart_punctuation_test_3() {
 
     test_markdown_html_smart(original, expected);
 }
+
+#[test]
+fn smart_punctuation_test_4() {
+    let original = r##"'Nobody Knows You're a Dog': As iconic Internet cartoon turns 20...
+"##;
+    let expected = r##"<p>&#8216;Nobody Knows You&#8217;re a Dog&#8217;: As iconic Internet cartoon turns 20...</p>
+"##;
+
+    test_markdown_html_smart(original, expected);
+}
