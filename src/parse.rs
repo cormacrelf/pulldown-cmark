@@ -193,7 +193,7 @@ enum ItemBody {
 
     // repeats, can_open, can_close
     MaybeEmphasis(usize, bool, bool),
-    MaybeSmartQuote(usize, bool, bool),
+    MaybeSmartQuote(SmartQuoteKind), // before_digit
     MaybeCode(usize, bool), // number of backticks, preceeded by backslash
     MaybeHtml,
     MaybeLinkOpen,
@@ -778,19 +778,21 @@ impl<'a> FirstPass<'a> {
                     }
                 }
                 c @ b'\'' | c @ b'"' => {
+                    let string_prefix = &self.text[..ix];
                     let string_suffix = &self.text[ix..];
-                    let can_open = delim_run_can_open(&self.text, string_suffix, 1, ix);
-                    let can_close = delim_run_can_close(&self.text, string_suffix, 1, ix);
+                    let kind = quote_kind(c, &self.text, string_prefix, string_suffix, ix);
                     let is_single = c == b'\'';
 
                     if self.options.contains(Options::ENABLE_SMART_PUNCTUATION) {
-                        self.tree.append_text(begin_text, ix);
-                        self.tree.append(Item {
-                            start: ix,
-                            end: ix + 1,
-                            body: ItemBody::MaybeSmartQuote(1, can_open, can_close),
-                        });
-                        begin_text = ix + 1;
+                        if let Some(kind) = kind {
+                            self.tree.append_text(begin_text, ix);
+                            self.tree.append(Item {
+                                start: ix,
+                                end: ix + 1,
+                                body: ItemBody::MaybeSmartQuote(kind),
+                            });
+                            begin_text = ix + 1;
+                        }
                     }
                     LoopInstruction::ContinueAndSkip(0)
                 }
@@ -1458,6 +1460,53 @@ impl<'a> Tree<Item> {
                 body: ItemBody::Text,
             });
         }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+enum SmartQuoteKind {
+    Open,
+    Close,
+    Midword,
+}
+
+/// Determines what kind a smart quote should open at this point
+fn quote_kind(character: u8, s: &str, prefix: &str, suffix: &str, ix: usize) -> Option<SmartQuoteKind> {
+    let not_italic_ish = |c: &char| { *c != '*' && *c != '~' && *c != '_' && *c != '\'' && *c != '"' };
+
+    // Beginning and end of line == whitespace.
+    let next_char = suffix.chars().filter(not_italic_ish).nth(0).unwrap_or(' ');
+    let prev_char = prefix.chars().rev().filter(not_italic_ish).nth(0).unwrap_or(' ');
+
+    let next_white = next_char.is_whitespace();
+    let prev_white = prev_char.is_whitespace();
+    // i.e. braces and the like
+    let not_term_punc = |c: char| is_punctuation(c) && c != '.' && c != ',';
+    let wordy = |c: char| !is_punctuation(c) && !c.is_whitespace() && !c.is_control();
+
+    if prev_white && next_white {
+        None
+    } else if prev_white && next_char.is_numeric() && character == b'\'' {
+        // '09 -- force a close quote
+        Some(SmartQuoteKind::Midword)
+    } else if !prev_white && next_white {
+        Some(SmartQuoteKind::Close)
+    } else if prev_white && !next_white {
+        Some(SmartQuoteKind::Open)
+    } else if next_white && (prev_char == '.' || prev_char == ',' || prev_char == '!') {
+        Some(SmartQuoteKind::Close)
+    } else if is_punctuation(prev_char) && not_term_punc(next_char) {
+        Some(SmartQuoteKind::Close)
+    } else if not_term_punc(prev_char) && is_punctuation(next_char) {
+        Some(SmartQuoteKind::Open)
+    } else if wordy(prev_char) && wordy(next_char) && character == b'\'' {
+        Some(SmartQuoteKind::Midword)
+    } else if is_punctuation(prev_char) && wordy(next_char) {
+        Some(SmartQuoteKind::Open)
+    } else if wordy(prev_char) && is_punctuation(next_char) {
+        Some(SmartQuoteKind::Close)
+    } else {
+        None
     }
 }
 
@@ -2281,7 +2330,7 @@ impl<'a> Parser<'a> {
         let block_text = &self.text[..block_end];
 
         while let TreePointer::Valid(mut cur_ix) = cur {
-            if let ItemBody::MaybeSmartQuote(count, can_open, can_close) = self.tree[cur_ix].item.body {
+            if let ItemBody::MaybeSmartQuote(kind) = self.tree[cur_ix].item.body {
                 let c = self.text.as_bytes()[self.tree[cur_ix].item.start];
                 let ty = |open: bool| match (open, c) {
                     (true, b'\'') => ItemBody::SmartQuoteSingleOpen,
@@ -2290,14 +2339,11 @@ impl<'a> Parser<'a> {
                     (false, b'"') => ItemBody::SmartQuoteDoubleClose,
                     _ => unreachable!("only single and double quotes should be in MaybeSmartQuote"),
                 };
-                // Neither == in the middle of a word (can_* have the same meaning as for emphasis)
-                if !can_open && !can_close && c == b'\'' {
-                    self.tree[cur_ix].item.body = ItemBody::SmartMidwordInvertedComma;
-                } else if can_close {
-                    self.tree[cur_ix].item.body = ty(false);
-                } else {
-                    self.tree[cur_ix].item.body = ty(true);
-                }
+                self.tree[cur_ix].item.body = match kind {
+                    SmartQuoteKind::Midword => ItemBody::SmartMidwordInvertedComma,
+                    SmartQuoteKind::Open => ty(true),
+                    SmartQuoteKind::Close => ty(false),
+                };
             }
             prev = cur;
             cur = self.tree[cur_ix].next;

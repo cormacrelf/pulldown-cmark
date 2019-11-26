@@ -44,3 +44,23 @@ fn smart_punctuation_test_4() {
 
     test_markdown_html_smart(original, expected);
 }
+
+#[test]
+fn smart_punctuation_test_5() {
+    let original = r##""A quote, and then a comma," and then done.
+"##;
+    let expected = r##"<p>&#8220;A quote, and then a comma,&#8221; and then done.</p>
+"##;
+
+    test_markdown_html_smart(original, expected);
+}
+
+#[test]
+fn smart_punctuation_test_6() {
+    let original = r##"'A quote, and then a comma,' and then done.
+"##;
+    let expected = r##"<p>&#8216;A quote, and then a comma,&#8217; and then done.</p>
+"##;
+
+    test_markdown_html_smart(original, expected);
+}

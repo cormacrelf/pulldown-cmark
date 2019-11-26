@@ -24,3 +24,14 @@ Manice's dog said, "Woof."
 <p>&#8216;Nobody Knows You&#8217;re a Dog&#8217;: As iconic Internet cartoon turns 20...</p>
 ````````````````````````````````
 
+```````````````````````````````` example_smart
+"A quote, and then a comma," and then done.
+.
+<p>&#8220;A quote, and then a comma,&#8221; and then done.</p>
+````````````````````````````````
+
+```````````````````````````````` example_smart
+'A quote, and then a comma,' and then done.
+.
+<p>&#8216;A quote, and then a comma,&#8217; and then done.</p>
+````````````````````````````````
