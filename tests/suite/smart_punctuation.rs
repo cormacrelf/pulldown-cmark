@@ -64,3 +64,13 @@ fn smart_punctuation_test_6() {
 
     test_markdown_html_smart(original, expected);
 }
+
+#[test]
+fn smart_punctuation_test_7() {
+    let original = r##"Some text, a "Stray quote.
+"##;
+    let expected = r##"<p>Some text, a &#8220;Stray quote.</p>
+"##;
+
+    test_markdown_html_smart(original, expected);
+}

@@ -35,3 +35,9 @@ Manice's dog said, "Woof."
 .
 <p>&#8216;A quote, and then a comma,&#8217; and then done.</p>
 ````````````````````````````````
+
+```````````````````````````````` example_smart
+Some text, a "Stray quote.
+.
+<p>Some text, a &#8220;Stray quote.</p>
+````````````````````````````````
